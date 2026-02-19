@@ -1,0 +1,849 @@
+<!--
+================================================================================
+TO SPEND OR NOT TO SPEND — PURCHASE DECISION FRAMEWORK
+================================================================================
+Version: v7
+Last updated: February 19, 2026
+
+RECOVERY INSTRUCTIONS
+If this is a new chat session and context has been lost, upload this file.
+Everything needed to continue development is documented below.
+
+--------------------------------------------------------------------------------
+WHAT THIS IS
+--------------------------------------------------------------------------------
+A web-based purchase evaluation tool (single HTML file, runs in any browser).
+Filters big-ticket impulse purchases using a structured decision tree.
+Threshold: $100 hardcoded. Not user-adjustable.
+Point-in-time decision aid only. Not persistent, not a tracker.
+
+--------------------------------------------------------------------------------
+DESIGN PRINCIPLES
+--------------------------------------------------------------------------------
+1. The tool decides whether to spend the money. Nothing else.
+2. Debt is not disqualifying. Unserviceable debt is.
+3. A workaround is not a solution.
+4. No cost to waiting = no case for buying today.
+5. Backorder is a valid purchase path. No ETA is not.
+6. No feature that can be gamed in the moment (e.g. adjustable threshold removed).
+7. Every feature must justify its workload to the user (save condition fields removed).
+8. Tool is point-in-time only — no persistence, no tracking, no reminders.
+
+--------------------------------------------------------------------------------
+QUESTION FLOW
+--------------------------------------------------------------------------------
+Q1    Do you know the full out-of-pocket cost?
+      No = PENDING
+      Yes = enter amount
+
+Q1b   Enter the full cost
+      Below $100 = BELOW THRESHOLD
+      At or above $100 = continue to Q2
+
+Q2    What is the net impact of this purchase on your life? (6 months out)
+      Transformative / Significant / Moderate / Marginal = continue
+      Neutral / Negative = NO GO
+      NOTE: Marginal continues but faces tighter gates at Q4 and Q6
+
+Q3    Do you already own, borrow, or rent something that solves this?
+      Own it = Q3b adequacy check
+      Borrow/Rent = PENDING
+      Nothing available = continue to Q4
+
+Q3b   Does what you own actually solve the problem long-term?
+      Adequate = NO GO
+      Workaround = continue to Q4
+      KEY: pillow for back pain is not an adequate recliner substitute
+
+Q4    How does this purchase affect your overall financial health?
+      No impact = continue
+      Minor impact = continue
+      Noticeable = continue (except marginal need = NO GO)
+      Near the edge = NO GO
+      Damaging = NO GO
+
+Q5    Research checklist (all 4 required)
+      1. Confirmed this specific product solves the problem
+      2. Compared alternatives at this price point
+      3. Read credible reviews
+      4. Checked applicable discounts
+      Any unchecked = PENDING
+
+Q5b   What is the stock status?
+      In stock = continue to Q6
+      Backordered, okay waiting = continue to Q6 (Go verdicts become GO - PLACE ORDER)
+      No ETA = PENDING
+
+Q6    What happens if you wait and buy this later?
+      Serious impact = GO PRIORITY (or GO - PLACE ORDER if backordered)
+      Waiting saves = PENDING
+      Minor impact + Transformative/Significant = GO
+      Minor impact + Moderate + clean/tight finances = GO
+      Minor impact + Moderate + noticeable debt, or Marginal = PENDING
+      No impact + Transformative/Significant = PENDING
+      No impact + Moderate or Marginal = NO GO
+
+--------------------------------------------------------------------------------
+VERDICTS
+--------------------------------------------------------------------------------
+GO                  Purchase justified. Best price, not most convenient.
+GO - PLACE ORDER    Justified, backordered. Place order now.
+GO PRIORITY         Urgent. Buy now. Don't upgrade under cover of urgency.
+PENDING             Condition must be met first. Re-run when ready.
+PENDING (Stock)     Justified but no ETA. Return when available.
+NO GO               Does not clear the bar. Money stays put or goes to debt.
+BELOW THRESHOLD     Under $100. No evaluation required.
+
+--------------------------------------------------------------------------------
+KEY DESIGN DECISIONS & RATIONALE
+--------------------------------------------------------------------------------
+1.  Marginal continues past Q2 — filtered at Q4/Q6 instead
+2.  Q3b adequacy check — Own It no longer auto-kills
+3.  Q4 five-level financial scale — debt impact not debt existence
+4.  Strong need + no delay = PENDING not GO (no urgency = no case for today)
+5.  Removed credit-weak No Go — replaced by Q4 scale
+6.  Back navigation — clears downstream answers, no restart needed
+7.  Q5b stock question — separate from due diligence checklist
+8.  GO - Place Order verdict for backordered items
+9.  Save condition fields removed — no value for point-in-time tool
+10. Threshold UI removed — $100 hardcoded
+11. Title: To Spend or Not to Spend
+
+--------------------------------------------------------------------------------
+VERSION HISTORY
+--------------------------------------------------------------------------------
+v7  Embedded build log. File is now self-contained and fully recoverable.
+v6  Threshold UI removed. $100 hardcoded.
+v5  Title updated. Save condition fields removed from all verdicts.
+v4  Back navigation. Q5b stock question. Backorder verdict. Checklist = 4 items.
+v3  Full audit. Q3b adequacy check. Q4 redesigned. Routing overhauled.
+v2  Earlier session (recovered from uploaded file).
+v1  Initial build.
+
+--------------------------------------------------------------------------------
+FILE LOCATION
+--------------------------------------------------------------------------------
+iCloud/Claude/Projects/Purchase Decision Framework/
+================================================================================
+-->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>To Spend or Not to Spend</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=DM+Sans:wght@300;400;500&family=DM+Mono&display=swap');
+
+  :root {
+    --bg: #f7f5f0;
+    --surface: #efede7;
+    --border: #ddd9d0;
+    --text: #1e1c18;
+    --muted: #8a8578;
+    --accent: #2d5a3d;
+    --red: #8b2e1a;
+    --amber: #7a5c1e;
+    --serif: 'DM Serif Display', Georgia, serif;
+    --sans: 'DM Sans', system-ui, sans-serif;
+    --mono: 'DM Mono', monospace;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    min-height: 100vh;
+  }
+
+  .shell {
+    max-width: 560px;
+    margin: 0 auto;
+    padding: 3rem 1.5rem 4rem;
+  }
+
+  .masthead { margin-bottom: 3rem; }
+
+  .masthead-label {
+    font-family: var(--mono);
+    font-size: 0.65rem;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 0.5rem;
+  }
+
+  .masthead h1 {
+    font-family: var(--serif);
+    font-size: 2rem;
+    font-weight: 400;
+    color: var(--text);
+    line-height: 1.2;
+  }
+  .progress-bar {
+    height: 2px;
+    background: var(--border);
+    margin-bottom: 2.5rem;
+    border-radius: 1px;
+    overflow: hidden;
+  }
+
+  .progress-fill {
+    height: 100%;
+    background: var(--accent);
+    transition: width 0.4s ease;
+    border-radius: 1px;
+  }
+
+  .card { display: none; animation: rise 0.25s ease; }
+  .card.active { display: block; }
+
+  @keyframes rise {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .card-step {
+    font-family: var(--mono);
+    font-size: 0.62rem;
+    color: var(--muted);
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    margin-bottom: 0.6rem;
+  }
+
+  .card-q {
+    font-family: var(--serif);
+    font-size: 1.4rem;
+    font-weight: 400;
+    line-height: 1.35;
+    margin-bottom: 0.5rem;
+    color: var(--text);
+  }
+
+  .card-hint {
+    font-size: 0.8rem;
+    color: var(--muted);
+    line-height: 1.55;
+    margin-bottom: 1.75rem;
+  }
+
+  .opts { display: flex; flex-direction: column; gap: 0.45rem; }
+
+  .opt {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    padding: 0.85rem 1rem;
+    cursor: pointer;
+    font-size: 0.875rem;
+    color: var(--text);
+    text-align: left;
+    transition: all 0.12s;
+    display: flex;
+    gap: 0.75rem;
+    align-items: flex-start;
+    line-height: 1.45;
+    font-family: var(--sans);
+  }
+
+  .opt:hover { border-color: var(--accent); background: #fff; color: var(--accent); }
+
+  .opt-tag {
+    font-family: var(--mono);
+    font-size: 0.6rem;
+    color: var(--muted);
+    min-width: 64px;
+    padding-top: 0.15rem;
+    flex-shrink: 0;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+  }
+
+  .opt:hover .opt-tag { color: var(--accent); opacity: 0.6; }
+
+  .input-row { display: flex; gap: 0.5rem; margin-bottom: 0.5rem; }
+
+  .field {
+    background: #fff;
+    border: 1px solid var(--border);
+    color: var(--text);
+    font-family: var(--mono);
+    font-size: 0.95rem;
+    padding: 0.7rem 0.9rem;
+    flex: 1;
+    outline: none;
+    transition: border-color 0.12s;
+  }
+
+  .field:focus { border-color: var(--accent); }
+
+  .btn-confirm {
+    background: var(--accent);
+    border: none;
+    color: #fff;
+    font-family: var(--mono);
+    font-size: 0.7rem;
+    font-weight: 500;
+    padding: 0 1.1rem;
+    cursor: pointer;
+    letter-spacing: 0.1em;
+    transition: opacity 0.12s;
+  }
+
+  .btn-confirm:hover { opacity: 0.85; }
+
+  .checklist { display: flex; flex-direction: column; gap: 0.4rem; margin-bottom: 1.5rem; }
+
+  .check-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.75rem;
+    padding: 0.7rem 0.9rem;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    cursor: pointer;
+    transition: all 0.12s;
+  }
+
+  .check-item:hover { background: #fff; }
+
+  .check-item input[type="checkbox"] {
+    margin-top: 0.15rem;
+    accent-color: var(--accent);
+    width: 14px;
+    height: 14px;
+    flex-shrink: 0;
+    cursor: pointer;
+  }
+
+  .check-item label {
+    font-size: 0.875rem;
+    line-height: 1.45;
+    cursor: pointer;
+    color: var(--text);
+  }
+
+  .check-item.checked { border-color: var(--accent); background: rgba(45,90,61,0.04); }
+  .check-item.checked label { color: var(--muted); }
+
+  .btn-checklist {
+    background: var(--accent);
+    border: none;
+    color: #fff;
+    font-family: var(--mono);
+    font-size: 0.72rem;
+    padding: 0.7rem 1.25rem;
+    cursor: pointer;
+    letter-spacing: 0.08em;
+    margin-top: 0.5rem;
+    transition: opacity 0.12s;
+  }
+
+  .btn-checklist:hover { opacity: 0.85; }
+
+  .check-note {
+    font-family: var(--mono);
+    font-size: 0.72rem;
+    color: var(--red);
+    margin-top: 0.6rem;
+    display: none;
+  }
+
+  .verdict-card { padding: 2rem; border: 1px solid var(--border); margin-top: 0.5rem; }
+  .verdict-card.go { border-color: var(--accent); background: rgba(45,90,61,0.04); }
+  .verdict-card.no-go { border-color: var(--red); background: rgba(139,46,26,0.04); }
+  .verdict-card.pending { border-color: var(--amber); background: rgba(122,92,30,0.04); }
+
+  .verdict-stamp {
+    font-family: var(--serif);
+    font-size: 2.2rem;
+    margin-bottom: 0.6rem;
+    line-height: 1;
+  }
+
+  .verdict-card.go .verdict-stamp { color: var(--accent); }
+  .verdict-card.no-go .verdict-stamp { color: var(--red); }
+  .verdict-card.pending .verdict-stamp { color: var(--amber); }
+
+  .verdict-why {
+    font-size: 0.9rem;
+    line-height: 1.65;
+    margin-bottom: 1.1rem;
+    color: var(--text);
+  }
+
+  .verdict-rules {
+    font-family: var(--mono);
+    font-size: 0.72rem;
+    color: var(--muted);
+    line-height: 1.9;
+    border-top: 1px solid var(--border);
+    padding-top: 0.9rem;
+  }
+
+  .btn-reset {
+    background: none;
+    border: 1px solid var(--border);
+    color: var(--muted);
+    font-family: var(--mono);
+    font-size: 0.68rem;
+    padding: 0.5rem 1rem;
+    cursor: pointer;
+    letter-spacing: 0.08em;
+    margin-top: 1.25rem;
+    transition: all 0.12s;
+  }
+
+  .btn-reset:hover { border-color: var(--text); color: var(--text); }
+
+  .btn-back {
+    background: none;
+    border: none;
+    color: var(--muted);
+    font-family: var(--mono);
+    font-size: 0.68rem;
+    padding: 0;
+    cursor: pointer;
+    letter-spacing: 0.05em;
+    margin-bottom: 1.5rem;
+    display: none;
+    transition: color 0.12s;
+  }
+  .btn-back:hover { color: var(--text); }
+  .btn-back.visible { display: inline-block; }
+</style>
+</head>
+<body>
+<div class="shell">
+
+  <div class="masthead">
+    <div class="masthead-label">Purchase Decision Engine</div>
+    <h1>To Spend or Not to Spend</h1>
+  </div>
+  </div>
+
+  <div class="progress-bar"><div class="progress-fill" id="progress-fill" style="width:0%"></div></div>
+  <button class="btn-back" id="btn-back" onclick="goBack()">← Back</button>
+
+  <!-- Q1: Cost known? -->
+  <div class="card active" id="q-cost-known">
+    <div class="card-step">Question 1</div>
+    <div class="card-q">Do you know the full out-of-pocket cost?</div>
+    <div class="card-hint">Include tax, delivery, installation, subscriptions, accessories — everything required to make it functional.</div>
+    <div class="opts">
+      <div class="opt" onclick="answer('cost-known','yes')"><span class="opt-tag">Yes</span>I know the complete cost</div>
+      <div class="opt" onclick="answer('cost-known','no')"><span class="opt-tag">No</span>I don't know all the costs yet</div>
+    </div>
+  </div>
+
+  <!-- Q1b: Enter amount -->
+  <div class="card" id="q-cost-amount">
+    <div class="card-step">Question 1b</div>
+    <div class="card-q">What is the full out-of-pocket cost?</div>
+    <div class="card-hint">Enter the total — not just the sticker price.</div>
+    <div class="input-row">
+      <input class="field" type="number" id="cost-input" placeholder="$0.00" min="0" />
+      <button class="btn-confirm" onclick="submitCost()">NEXT →</button>
+    </div>
+  </div>
+
+  <!-- Q2: Net impact -->
+  <div class="card" id="q-net-impact">
+    <div class="card-step">Question 2</div>
+    <div class="card-q">What is the net impact of this purchase on your life?</div>
+    <div class="card-hint">Both sides, honestly. What changes if you buy it — and what changes if you don't? Project six months out, not today.</div>
+    <div class="opts">
+      <div class="opt" onclick="answer('net-impact','transformative')"><span class="opt-tag">Major gain</span>Fundamentally improves quality of life. Enables things otherwise impossible. Real downside to not having it.</div>
+      <div class="opt" onclick="answer('net-impact','significant')"><span class="opt-tag">Clear gain</span>Meaningful, lasting improvement. Solves a real ongoing problem. Life is noticeably better with it.</div>
+      <div class="opt" onclick="answer('net-impact','moderate')"><span class="opt-tag">Modest gain</span>Noticeable improvement. Makes things easier or more enjoyable. Life continues fine without it.</div>
+      <div class="opt" onclick="answer('net-impact','marginal')"><span class="opt-tag">Minimal gain</span>Nice but minor. Unlikely to change much. Benefit fades quickly.</div>
+      <div class="opt" onclick="answer('net-impact','neutral')"><span class="opt-tag">No gain</span>Honest answer: nothing really changes either way.</div>
+      <div class="opt" onclick="answer('net-impact','negative')"><span class="opt-tag">Net loss</span>Not buying is better — saves money, reduces clutter, simplifies life.</div>
+    </div>
+  </div>
+
+  <!-- Q3: Own/borrow/rent -->
+  <div class="card" id="q-own">
+    <div class="card-step">Question 3</div>
+    <div class="card-q">Do you already own, or can you borrow or rent, something that solves this?</div>
+    <div class="card-hint">Include things that could be modified or repurposed. The solution doesn't have to be perfect — just functional.</div>
+    <div class="opts">
+      <div class="opt" onclick="answer('own','yes-own')"><span class="opt-tag">Own it</span>I already have something that works or could be modified to work</div>
+      <div class="opt" onclick="answer('own','yes-borrow')"><span class="opt-tag">Borrow / rent</span>I could borrow or rent instead of buying</div>
+      <div class="opt" onclick="answer('own','no')"><span class="opt-tag">No</span>Nothing available — purchase is the only path</div>
+    </div>
+  </div>
+
+  <!-- Q3b: Adequacy check -->
+  <div class="card" id="q-own-adequate">
+    <div class="card-step">Question 3b</div>
+    <div class="card-q">Does what you own actually solve the problem long-term?</div>
+    <div class="card-hint">A workaround isn't a solution. Be honest — is this something you can sustain, or just something that gets you through today?</div>
+    <div class="opts">
+      <div class="opt" onclick="answer('own-adequate','yes')"><span class="opt-tag">Adequate</span>It works well enough. No real downside to continuing with it.</div>
+      <div class="opt" onclick="answer('own-adequate','no')"><span class="opt-tag">Workaround</span>It's a band-aid. Not sustainable or acceptable long-term.</div>
+    </div>
+  </div>
+
+  <!-- Q4: Financial reality -->
+  <div class="card" id="q-financial">
+    <div class="card-step">Question 4</div>
+    <div class="card-q">How does this purchase affect your overall financial health?</div>
+    <div class="card-hint">Don't ask if you can technically pay for it. Ask honestly what this does to your financial position — today and going forward.</div>
+    <div class="opts">
+      <div class="opt" onclick="answer('financial','clean')"><span class="opt-tag">No impact</span>Cash available. No debt added. Nothing changes.</div>
+      <div class="opt" onclick="answer('financial','tight')"><span class="opt-tag">Minor impact</span>Tighter, but I stay on top of everything. Debt is manageable and this doesn't change that.</div>
+      <div class="opt" onclick="answer('financial','noticeable')"><span class="opt-tag">Noticeable</span>I'll feel this. Debt increases in a way that's real but still serviceable.</div>
+      <div class="opt" onclick="answer('financial','edge')"><span class="opt-tag">Near the edge</span>I'm already stretched. Adding this pushes me closer to a breaking point.</div>
+      <div class="opt" onclick="answer('financial','damaging')"><span class="opt-tag">Damaging</span>I cannot responsibly add this. It puts me over the edge.</div>
+    </div>
+  </div>
+
+  <!-- Q5: Research checklist -->
+  <div class="card" id="q-research">
+    <div class="card-step">Question 5</div>
+    <div class="card-q">Are you ready to buy?</div>
+    <div class="card-hint">Check everything that's true. Unchecked items route to Pending.</div>
+    <div class="checklist">
+      <div class="check-item" id="ci-1"><input type="checkbox" id="c1" onchange="toggleCheck('ci-1','c1')" /><label for="c1">I've confirmed this specific product solves the problem — not just the category</label></div>
+      <div class="check-item" id="ci-2"><input type="checkbox" id="c2" onchange="toggleCheck('ci-2','c2')" /><label for="c2">I've compared alternatives at this price point</label></div>
+      <div class="check-item" id="ci-3"><input type="checkbox" id="c3" onchange="toggleCheck('ci-3','c3')" /><label for="c3">I've read credible reviews and found them reliable</label></div>
+      <div class="check-item" id="ci-4"><input type="checkbox" id="c4" onchange="toggleCheck('ci-4','c4')" /><label for="c4">I've checked for applicable discounts — military, senior, student, membership, cashback</label></div>
+    </div>
+    <div class="check-note" id="check-note">Incomplete research — routing to Pending.</div>
+    <button class="btn-checklist" onclick="submitChecklist()">CONTINUE →</button>
+  </div>
+
+  <!-- Q5b: Stock status -->
+  <div class="card" id="q-stock">
+    <div class="card-step">Question 5b</div>
+    <div class="card-q">What is the stock status?</div>
+    <div class="card-hint">This is a logistical check, not a decision gate. Backorder is a valid path if you're willing to wait.</div>
+    <div class="opts">
+      <div class="opt" onclick="answer('stock','instock')"><span class="opt-tag">In stock</span>Available now and ships when needed</div>
+      <div class="opt" onclick="answer('stock','backorder')"><span class="opt-tag">Backordered</span>Not in stock now — I'm okay waiting and want to place the order</div>
+      <div class="opt" onclick="answer('stock','noeta')"><span class="opt-tag">No ETA</span>Out of stock with no confirmed availability date</div>
+    </div>
+  </div>
+
+  <!-- Q6: Delay consequence -->
+  <div class="card" id="q-delay">
+    <div class="card-step">Question 6</div>
+    <div class="card-q">What happens if you wait and buy this later?</div>
+    <div class="card-hint">Retailer deadlines are not real consequences. Evaluate the actual impact of delay on your life.</div>
+    <div class="opts">
+      <div class="opt" onclick="answer('delay','serious')"><span class="opt-tag">Serious impact</span>Delay causes real harm — health, safety, financial penalty, or critical function affected</div>
+      <div class="opt" onclick="answer('delay','minor')"><span class="opt-tag">Minor impact</span>Inconvenient but life continues normally</div>
+      <div class="opt" onclick="answer('delay','none')"><span class="opt-tag">No impact</span>Waiting costs nothing. No consequence to delay.</div>
+      <div class="opt" onclick="answer('delay','saves')"><span class="opt-tag">Waiting saves</span>Price likely drops, better version coming, or sale expected</div>
+    </div>
+  </div>
+
+  <!-- VERDICTS -->
+
+  <div class="card" id="v-below-threshold">
+    <div class="verdict-card pending">
+      <div class="verdict-stamp">Below Threshold</div>
+      <div class="verdict-why">Under your threshold. No evaluation required — but the principles still apply if you want to use them.</div>
+      <button class="btn-reset" onclick="reset()">↩ Start Over</button>
+    </div>
+  </div>
+
+  <div class="card" id="v-pending-cost">
+    <div class="verdict-card pending">
+      <div class="verdict-stamp">Pending</div>
+      <div class="verdict-why">You don't know the full cost yet. Don't decide until you do. The real number may change everything.</div>
+      <div class="verdict-rules">→ Research the complete cost including tax, delivery, installation, accessories<br>→ Return and re-run when you have the full number</div>
+      <button class="btn-reset" onclick="reset()">↩ Start Over</button>
+    </div>
+  </div>
+
+  <div class="card" id="v-no-go-impact">
+    <div class="verdict-card no-go">
+      <div class="verdict-stamp">No Go</div>
+      <div class="verdict-why">The honest answer is that this purchase changes nothing meaningful. No gain justifies the spend. Keep the money or apply it to debt.</div>
+      <div class="verdict-rules">→ Apply funds to credit debt instead<br>→ Revisit only if circumstances change materially</div>
+      <button class="btn-reset" onclick="reset()">↩ Start Over</button>
+    </div>
+  </div>
+
+  <div class="card" id="v-no-go-own">
+    <div class="verdict-card no-go">
+      <div class="verdict-stamp">No Go</div>
+      <div class="verdict-why">You already have a solution. Use what you own before spending money on something new.</div>
+      <div class="verdict-rules">→ Attempt the modification or use the existing item first<br>→ If it fails, return and re-run — purchase may then be justified</div>
+      <button class="btn-reset" onclick="reset()">↩ Start Over</button>
+    </div>
+  </div>
+
+  <div class="card" id="v-pending-borrow">
+    <div class="verdict-card pending">
+      <div class="verdict-stamp">Pending</div>
+      <div class="verdict-why">A borrow or rental option exists. Explore it before committing to a purchase.</div>
+      <div class="verdict-rules">→ Attempt to borrow or rent first<br>→ If unavailable or impractical, return and re-run</div>
+      <button class="btn-reset" onclick="reset()">↩ Start Over</button>
+    </div>
+  </div>
+
+  <div class="card" id="v-no-go-financial">
+    <div class="verdict-card no-go">
+      <div class="verdict-stamp">No Go</div>
+      <div class="verdict-why">Your financial position can't absorb this right now. The purchase may be valid — the timing isn't. Adding this now puts you in a worse place, not a better one.</div>
+      <div class="verdict-rules">→ Define the financial condition that makes this responsible<br>→ Return and re-run when that condition is met</div>
+      <button class="btn-reset" onclick="reset()">↩ Start Over</button>
+    </div>
+  </div>
+
+  <div class="card" id="v-pending-research">
+    <div class="verdict-card pending">
+      <div class="verdict-stamp">Pending</div>
+      <div class="verdict-why">Your research is incomplete. Don't buy until every item is checked. A missing piece of information at this stage has real cost.</div>
+      <div class="verdict-rules">→ Complete all unchecked research items<br>→ Return and re-run when ready<br>→ Research may change the verdict entirely</div>
+      <button class="btn-reset" onclick="reset()">↩ Start Over</button>
+    </div>
+  </div>
+
+  <div class="card" id="v-pending-delay">
+    <div class="verdict-card pending">
+      <div class="verdict-stamp">Pending</div>
+      <div class="verdict-why">The purchase is justified in principle. The timing isn't right yet. Define the condition and return when it's met.</div>
+      <div class="verdict-rules">→ Decision is Go in principle<br>→ Don't buy until the condition below is met</div>
+      <button class="btn-reset" onclick="reset()">↩ Start Over</button>
+    </div>
+  </div>
+
+  <div class="card" id="v-no-go-delay">
+    <div class="verdict-card no-go">
+      <div class="verdict-stamp">No Go</div>
+      <div class="verdict-why">No consequence to waiting — which means no urgency to buy today. If there's no cost to delay, there's no case for buying now.</div>
+      <div class="verdict-rules">→ Return when a real condition justifies the purchase<br>→ Apply funds to debt in the meantime</div>
+      <button class="btn-reset" onclick="reset()">↩ Start Over</button>
+    </div>
+  </div>
+
+  <div class="card" id="v-go">
+    <div class="verdict-card go">
+      <div class="verdict-stamp">Go</div>
+      <div class="verdict-why">This purchase is justified. The need is real, the benefit is meaningful, your finances can absorb it, and your research is complete.</div>
+      <div class="verdict-rules">→ Buy at the best available price — not the most convenient<br>→ Buy the version that solves the problem, not the upgraded version<br>→ Log this purchase and revisit in 30 days</div>
+      <button class="btn-reset" onclick="reset()">↩ Start Over</button>
+    </div>
+  </div>
+
+  <div class="card" id="v-go-backorder">
+    <div class="verdict-card go">
+      <div class="verdict-stamp">Go — Place the Order</div>
+      <div class="verdict-why">This purchase is justified. The item is backordered — place the order now and wait for fulfillment. The decision is made.</div>
+      <div class="verdict-rules">→ Place the order at the best available price<br>→ Buy the version that solves the problem, not the upgrade<br>→ Note the expected wait time before ordering</div>
+      <button class="btn-reset" onclick="reset()">↩ Start Over</button>
+    </div>
+  </div>
+
+  <div class="card" id="v-pending-stock">
+    <div class="verdict-card pending">
+      <div class="verdict-stamp">Pending</div>
+      <div class="verdict-why">Purchase is justified but stock is unavailable with no confirmed date. Don't order until availability is confirmed.</div>
+      <div class="verdict-rules">→ Monitor stock status<br>→ Return and re-run when item is available or backordered</div>
+      <button class="btn-reset" onclick="reset()">↩ Start Over</button>
+    </div>
+  </div>
+
+  <div class="card" id="v-go-priority">
+    <div class="verdict-card go">
+      <div class="verdict-stamp">Go — Priority</div>
+      <div class="verdict-why">Delay causes serious impact. This is a genuine urgent need. Buy now at the best available price.</div>
+      <div class="verdict-rules">→ Don't delay further<br>→ Buy the minimum that solves the problem<br>→ Don't upgrade under the cover of urgency</div>
+      <button class="btn-reset" onclick="reset()">↩ Start Over</button>
+    </div>
+  </div>
+
+</div>
+
+<script>
+  const THRESHOLD = 100;
+  let answers = {};
+  let cost = 0;
+  let history = []; // stack of {cardId, progressPct}
+
+  // Question order map — used by back navigation
+  const QUESTION_CARDS = [
+    'q-cost-known','q-cost-amount','q-net-impact','q-own','q-own-adequate',
+    'q-financial','q-research','q-stock','q-delay'
+  ];
+
+  function show(id) {
+    document.querySelectorAll('.card').forEach(c => c.classList.remove('active'));
+    document.getElementById(id).classList.add('active');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+    // Show back button only on question cards (not Q1 and not verdicts)
+    const isQuestion = QUESTION_CARDS.includes(id);
+    const isFirst = id === 'q-cost-known';
+    const btn = document.getElementById('btn-back');
+    btn.classList.toggle('visible', isQuestion && !isFirst && history.length > 0);
+  }
+
+  function progress(pct) {
+    document.getElementById('progress-fill').style.width = pct + '%';
+  }
+
+  function pushHistory(cardId, pct) {
+    history.push({ cardId, pct });
+  }
+
+  function goBack() {
+    if (history.length === 0) return;
+    const prev = history.pop();
+    // Clear answers recorded after returning point
+    const idx = QUESTION_CARDS.indexOf(prev.cardId);
+    const toRemove = QUESTION_CARDS.slice(idx);
+    const answerKeys = {
+      'q-cost-known': 'cost-known',
+      'q-cost-amount': 'cost',
+      'q-net-impact': 'net-impact',
+      'q-own': 'own',
+      'q-own-adequate': 'own-adequate',
+      'q-financial': 'financial',
+      'q-research': null,
+      'q-stock': 'stock',
+      'q-delay': 'delay'
+    };
+    toRemove.forEach(card => {
+      const key = answerKeys[card];
+      if (key) delete answers[key];
+    });
+    progress(prev.pct);
+    show(prev.cardId);
+  }
+  function toggleCheck(itemId, cbId) {
+    document.getElementById(itemId).classList.toggle('checked', document.getElementById(cbId).checked);
+  }
+
+  function navigate(fromCard, fromPct, toCard, toPct) {
+    pushHistory(fromCard, fromPct);
+    progress(toPct);
+    show(toCard);
+  }
+
+  function answer(question, value) {
+    answers[question] = value;
+    route(question, value);
+  }
+
+  function getCurrentCard() {
+    const active = document.querySelector('.card.active');
+    return active ? active.id : null;
+  }
+
+  function route(question, value) {
+
+    if (question === 'cost-known') {
+      if (value === 'no') { progress(100); show('v-pending-cost'); return; }
+      navigate('q-cost-known', 0, 'q-cost-amount', 14);  return;
+    }
+
+    if (question === 'net-impact') {
+      if (value === 'neutral' || value === 'negative') {
+        progress(100); show('v-no-go-impact'); return;
+      }
+      navigate('q-net-impact', 28, 'q-own', 42); return;
+    }
+
+    if (question === 'own') {
+      if (value === 'yes-own') { navigate('q-own', 42, 'q-own-adequate', 49); return; }
+      if (value === 'yes-borrow') { progress(100); show('v-pending-borrow'); return; }
+      navigate('q-own', 42, 'q-financial', 56); return;
+    }
+
+    if (question === 'own-adequate') {
+      if (value === 'yes') { progress(100); show('v-no-go-own'); return; }
+      navigate('q-own-adequate', 49, 'q-financial', 56); return;
+    }
+
+    if (question === 'financial') {
+      if (value === 'damaging') { progress(100); show('v-no-go-financial'); return; }
+      if (value === 'edge') { progress(100); show('v-no-go-financial'); return; }
+      if (answers['net-impact'] === 'marginal' && value === 'noticeable') {
+        progress(100); show('v-no-go-financial'); return;
+      }
+      navigate('q-financial', 56, 'q-research', 70); return;
+    }
+
+    if (question === 'stock') {
+      if (value === 'noeta') { progress(100); show('v-pending-stock'); return; }
+      // instock and backorder both proceed to delay question
+      navigate('q-stock', 77, 'q-delay', 84); return;
+    }
+
+    if (question === 'delay') {
+      if (value === 'serious') {
+        if (answers['stock'] === 'backorder') { progress(100); show('v-go-backorder'); return; }
+        progress(100); show('v-go-priority'); return;
+      }
+      if (value === 'saves') { progress(100); show('v-pending-delay'); return; }
+
+      const impact = answers['net-impact'];
+      const fin = answers['financial'];
+      const isBackorder = answers['stock'] === 'backorder';
+
+      function goVerdict() {
+        if (isBackorder) { show('v-go-backorder'); } else { show('v-go'); }
+      }
+
+      if (value === 'none') {
+        if (impact === 'transformative' || impact === 'significant') {
+          progress(100); show('v-pending-delay'); return;
+        }
+        progress(100); show('v-no-go-delay'); return;
+      }
+
+      if (value === 'minor') {
+        if (impact === 'transformative' || impact === 'significant') {
+          progress(100); goVerdict(); return;
+        }
+        if (impact === 'moderate' && (fin === 'clean' || fin === 'tight')) {
+          progress(100); goVerdict(); return;
+        }
+        progress(100); show('v-pending-delay'); return;
+      }
+    }
+  }
+
+  function submitCost() {
+    const val = parseFloat(document.getElementById('cost-input').value);
+    if (!val || val <= 0) return;
+    cost = val;
+    answers.cost = val;
+    if (val < THRESHOLD) { progress(100); show('v-below-threshold'); return; }
+    navigate('q-cost-amount', 14, 'q-net-impact', 28);
+  }
+
+  function submitChecklist() {
+    const unchecked = ['c1','c2','c3','c4'].filter(id => !document.getElementById(id).checked);
+    if (unchecked.length > 0) {
+      document.getElementById('check-note').style.display = 'block';
+      setTimeout(() => { progress(100); show('v-pending-research'); }, 1200);
+      return;
+    }
+    navigate('q-research', 70, 'q-stock', 77);
+  }
+
+  function reset() {
+    answers = {}; cost = 0; history = [];
+    document.getElementById('cost-input').value = '';
+    ['c1','c2','c3','c4'].forEach(id => { document.getElementById(id).checked = false; });
+    ['ci-1','ci-2','ci-3','ci-4'].forEach(id => { document.getElementById(id).classList.remove('checked'); });
+    document.getElementById('check-note').style.display = 'none';
+    document.getElementById('btn-back').classList.remove('visible');
+    progress(0); show('q-cost-known');
+  }
+
+  document.addEventListener('DOMContentLoaded', () => {
+    document.getElementById('cost-input').addEventListener('keydown', e => { if (e.key === 'Enter') submitCost(); });
+  });
+
+  progress(0);
+</script>
+</body>
+</html>
