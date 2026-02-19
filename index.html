@@ -2,7 +2,7 @@
 ================================================================================
 TO SPEND OR NOT TO SPEND — PURCHASE DECISION FRAMEWORK
 ================================================================================
-Version: v8
+Version: v9
 Last updated: February 19, 2026
 
 RECOVERY INSTRUCTIONS
@@ -110,6 +110,7 @@ KEY DESIGN DECISIONS & RATIONALE
 --------------------------------------------------------------------------------
 VERSION HISTORY
 --------------------------------------------------------------------------------
+v9  Start Over button added to all question pages (Q2 onward).
 v8  Fixed shell div structure (caused missing margins). Threshold removed entirely.
 v7  Embedded build log. File is now self-contained and fully recoverable.
 v6  Threshold UI removed. $100 hardcoded.
@@ -398,6 +399,14 @@ iCloud/Claude/Claude Projects/Purchase Decision Framework/
 
   .btn-reset:hover { border-color: var(--text); color: var(--text); }
 
+  .card-nav {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1.5rem;
+    min-height: 1.2rem;
+  }
+
   .btn-back {
     background: none;
     border: none;
@@ -407,12 +416,26 @@ iCloud/Claude/Claude Projects/Purchase Decision Framework/
     padding: 0;
     cursor: pointer;
     letter-spacing: 0.05em;
-    margin-bottom: 1.5rem;
-    display: none;
     transition: color 0.12s;
+    visibility: hidden;
   }
   .btn-back:hover { color: var(--text); }
-  .btn-back.visible { display: inline-block; }
+  .btn-back.visible { visibility: visible; }
+
+  .btn-restart {
+    background: none;
+    border: none;
+    color: var(--muted);
+    font-family: var(--mono);
+    font-size: 0.68rem;
+    padding: 0;
+    cursor: pointer;
+    letter-spacing: 0.05em;
+    transition: color 0.12s;
+    visibility: hidden;
+  }
+  .btn-restart:hover { color: var(--text); }
+  .btn-restart.visible { visibility: visible; }
 </style>
 </head>
 <body>
@@ -424,7 +447,10 @@ iCloud/Claude/Claude Projects/Purchase Decision Framework/
   </div>
 
   <div class="progress-bar"><div class="progress-fill" id="progress-fill" style="width:0%"></div></div>
-  <button class="btn-back" id="btn-back" onclick="goBack()">← Back</button>
+  <div class="card-nav">
+    <button class="btn-back" id="btn-back" onclick="goBack()">← Back</button>
+    <button class="btn-restart" id="btn-restart" onclick="reset()">↩ Start Over</button>
+  </div>
 
   <div class="card active" id="q-cost-known">
     <div class="card-step">Question 1</div>
@@ -657,8 +683,8 @@ iCloud/Claude/Claude Projects/Purchase Decision Framework/
     window.scrollTo({ top: 0, behavior: 'smooth' });
     const isQuestion = QUESTION_CARDS.includes(id);
     const isFirst = id === 'q-cost-known';
-    const btn = document.getElementById('btn-back');
-    btn.classList.toggle('visible', isQuestion && !isFirst && history.length > 0);
+    document.getElementById('btn-back').classList.toggle('visible', isQuestion && !isFirst && history.length > 0);
+    document.getElementById('btn-restart').classList.toggle('visible', isQuestion && !isFirst);
   }
 
   function progress(pct) {
@@ -794,6 +820,7 @@ iCloud/Claude/Claude Projects/Purchase Decision Framework/
     ['ci-1','ci-2','ci-3','ci-4'].forEach(id => { document.getElementById(id).classList.remove('checked'); });
     document.getElementById('check-note').style.display = 'none';
     document.getElementById('btn-back').classList.remove('visible');
+    document.getElementById('btn-restart').classList.remove('visible');
     progress(0); show('q-cost-known');
   }
 
