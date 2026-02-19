@@ -2,7 +2,7 @@
 ================================================================================
 TO SPEND OR NOT TO SPEND — PURCHASE DECISION FRAMEWORK
 ================================================================================
-Version: v7
+Version: v8
 Last updated: February 19, 2026
 
 RECOVERY INSTRUCTIONS
@@ -14,7 +14,7 @@ WHAT THIS IS
 --------------------------------------------------------------------------------
 A web-based purchase evaluation tool (single HTML file, runs in any browser).
 Filters big-ticket impulse purchases using a structured decision tree.
-Threshold: $100 hardcoded. Not user-adjustable.
+Threshold removed entirely — all purchases evaluated regardless of amount.
 Point-in-time decision aid only. Not persistent, not a tracker.
 
 --------------------------------------------------------------------------------
@@ -25,7 +25,7 @@ DESIGN PRINCIPLES
 3. A workaround is not a solution.
 4. No cost to waiting = no case for buying today.
 5. Backorder is a valid purchase path. No ETA is not.
-6. No feature that can be gamed in the moment (e.g. adjustable threshold removed).
+6. No feature that can be gamed in the moment (threshold removed entirely in v8).
 7. Every feature must justify its workload to the user (save condition fields removed).
 8. Tool is point-in-time only — no persistence, no tracking, no reminders.
 
@@ -37,8 +37,7 @@ Q1    Do you know the full out-of-pocket cost?
       Yes = enter amount
 
 Q1b   Enter the full cost
-      Below $100 = BELOW THRESHOLD
-      At or above $100 = continue to Q2
+      Any amount = continue to Q2
 
 Q2    What is the net impact of this purchase on your life? (6 months out)
       Transformative / Significant / Moderate / Marginal = continue
@@ -92,7 +91,6 @@ GO PRIORITY         Urgent. Buy now. Don't upgrade under cover of urgency.
 PENDING             Condition must be met first. Re-run when ready.
 PENDING (Stock)     Justified but no ETA. Return when available.
 NO GO               Does not clear the bar. Money stays put or goes to debt.
-BELOW THRESHOLD     Under $100. No evaluation required.
 
 --------------------------------------------------------------------------------
 KEY DESIGN DECISIONS & RATIONALE
@@ -106,12 +104,13 @@ KEY DESIGN DECISIONS & RATIONALE
 7.  Q5b stock question — separate from due diligence checklist
 8.  GO - Place Order verdict for backordered items
 9.  Save condition fields removed — no value for point-in-time tool
-10. Threshold UI removed — $100 hardcoded
+10. Threshold removed entirely in v8
 11. Title: To Spend or Not to Spend
 
 --------------------------------------------------------------------------------
 VERSION HISTORY
 --------------------------------------------------------------------------------
+v8  Fixed shell div structure (caused missing margins). Threshold removed entirely.
 v7  Embedded build log. File is now self-contained and fully recoverable.
 v6  Threshold UI removed. $100 hardcoded.
 v5  Title updated. Save condition fields removed from all verdicts.
@@ -123,7 +122,7 @@ v1  Initial build.
 --------------------------------------------------------------------------------
 FILE LOCATION
 --------------------------------------------------------------------------------
-iCloud/Claude/Projects/Purchase Decision Framework/
+iCloud/Claude/Claude Projects/Purchase Decision Framework/
 ================================================================================
 -->
 <!DOCTYPE html>
@@ -182,6 +181,7 @@ iCloud/Claude/Projects/Purchase Decision Framework/
     color: var(--text);
     line-height: 1.2;
   }
+
   .progress-bar {
     height: 2px;
     background: var(--border);
@@ -422,12 +422,10 @@ iCloud/Claude/Projects/Purchase Decision Framework/
     <div class="masthead-label">Purchase Decision Engine</div>
     <h1>To Spend or Not to Spend</h1>
   </div>
-  </div>
 
   <div class="progress-bar"><div class="progress-fill" id="progress-fill" style="width:0%"></div></div>
   <button class="btn-back" id="btn-back" onclick="goBack()">← Back</button>
 
-  <!-- Q1: Cost known? -->
   <div class="card active" id="q-cost-known">
     <div class="card-step">Question 1</div>
     <div class="card-q">Do you know the full out-of-pocket cost?</div>
@@ -438,7 +436,6 @@ iCloud/Claude/Projects/Purchase Decision Framework/
     </div>
   </div>
 
-  <!-- Q1b: Enter amount -->
   <div class="card" id="q-cost-amount">
     <div class="card-step">Question 1b</div>
     <div class="card-q">What is the full out-of-pocket cost?</div>
@@ -449,7 +446,6 @@ iCloud/Claude/Projects/Purchase Decision Framework/
     </div>
   </div>
 
-  <!-- Q2: Net impact -->
   <div class="card" id="q-net-impact">
     <div class="card-step">Question 2</div>
     <div class="card-q">What is the net impact of this purchase on your life?</div>
@@ -464,7 +460,6 @@ iCloud/Claude/Projects/Purchase Decision Framework/
     </div>
   </div>
 
-  <!-- Q3: Own/borrow/rent -->
   <div class="card" id="q-own">
     <div class="card-step">Question 3</div>
     <div class="card-q">Do you already own, or can you borrow or rent, something that solves this?</div>
@@ -476,7 +471,6 @@ iCloud/Claude/Projects/Purchase Decision Framework/
     </div>
   </div>
 
-  <!-- Q3b: Adequacy check -->
   <div class="card" id="q-own-adequate">
     <div class="card-step">Question 3b</div>
     <div class="card-q">Does what you own actually solve the problem long-term?</div>
@@ -487,7 +481,6 @@ iCloud/Claude/Projects/Purchase Decision Framework/
     </div>
   </div>
 
-  <!-- Q4: Financial reality -->
   <div class="card" id="q-financial">
     <div class="card-step">Question 4</div>
     <div class="card-q">How does this purchase affect your overall financial health?</div>
@@ -501,7 +494,6 @@ iCloud/Claude/Projects/Purchase Decision Framework/
     </div>
   </div>
 
-  <!-- Q5: Research checklist -->
   <div class="card" id="q-research">
     <div class="card-step">Question 5</div>
     <div class="card-q">Are you ready to buy?</div>
@@ -516,7 +508,6 @@ iCloud/Claude/Projects/Purchase Decision Framework/
     <button class="btn-checklist" onclick="submitChecklist()">CONTINUE →</button>
   </div>
 
-  <!-- Q5b: Stock status -->
   <div class="card" id="q-stock">
     <div class="card-step">Question 5b</div>
     <div class="card-q">What is the stock status?</div>
@@ -528,7 +519,6 @@ iCloud/Claude/Projects/Purchase Decision Framework/
     </div>
   </div>
 
-  <!-- Q6: Delay consequence -->
   <div class="card" id="q-delay">
     <div class="card-step">Question 6</div>
     <div class="card-q">What happens if you wait and buy this later?</div>
@@ -538,16 +528,6 @@ iCloud/Claude/Projects/Purchase Decision Framework/
       <div class="opt" onclick="answer('delay','minor')"><span class="opt-tag">Minor impact</span>Inconvenient but life continues normally</div>
       <div class="opt" onclick="answer('delay','none')"><span class="opt-tag">No impact</span>Waiting costs nothing. No consequence to delay.</div>
       <div class="opt" onclick="answer('delay','saves')"><span class="opt-tag">Waiting saves</span>Price likely drops, better version coming, or sale expected</div>
-    </div>
-  </div>
-
-  <!-- VERDICTS -->
-
-  <div class="card" id="v-below-threshold">
-    <div class="verdict-card pending">
-      <div class="verdict-stamp">Below Threshold</div>
-      <div class="verdict-why">Under your threshold. No evaluation required — but the principles still apply if you want to use them.</div>
-      <button class="btn-reset" onclick="reset()">↩ Start Over</button>
     </div>
   </div>
 
@@ -609,7 +589,7 @@ iCloud/Claude/Projects/Purchase Decision Framework/
     <div class="verdict-card pending">
       <div class="verdict-stamp">Pending</div>
       <div class="verdict-why">The purchase is justified in principle. The timing isn't right yet. Define the condition and return when it's met.</div>
-      <div class="verdict-rules">→ Decision is Go in principle<br>→ Don't buy until the condition below is met</div>
+      <div class="verdict-rules">→ Decision is Go in principle<br>→ Don't buy until the condition is met</div>
       <button class="btn-reset" onclick="reset()">↩ Start Over</button>
     </div>
   </div>
@@ -627,7 +607,7 @@ iCloud/Claude/Projects/Purchase Decision Framework/
     <div class="verdict-card go">
       <div class="verdict-stamp">Go</div>
       <div class="verdict-why">This purchase is justified. The need is real, the benefit is meaningful, your finances can absorb it, and your research is complete.</div>
-      <div class="verdict-rules">→ Buy at the best available price — not the most convenient<br>→ Buy the version that solves the problem, not the upgraded version<br>→ Log this purchase and revisit in 30 days</div>
+      <div class="verdict-rules">→ Buy at the best available price — not the most convenient<br>→ Buy the version that solves the problem, not the upgraded version</div>
       <button class="btn-reset" onclick="reset()">↩ Start Over</button>
     </div>
   </div>
@@ -662,12 +642,10 @@ iCloud/Claude/Projects/Purchase Decision Framework/
 </div>
 
 <script>
-  const THRESHOLD = 100;
   let answers = {};
   let cost = 0;
-  let history = []; // stack of {cardId, progressPct}
+  let history = [];
 
-  // Question order map — used by back navigation
   const QUESTION_CARDS = [
     'q-cost-known','q-cost-amount','q-net-impact','q-own','q-own-adequate',
     'q-financial','q-research','q-stock','q-delay'
@@ -677,7 +655,6 @@ iCloud/Claude/Projects/Purchase Decision Framework/
     document.querySelectorAll('.card').forEach(c => c.classList.remove('active'));
     document.getElementById(id).classList.add('active');
     window.scrollTo({ top: 0, behavior: 'smooth' });
-    // Show back button only on question cards (not Q1 and not verdicts)
     const isQuestion = QUESTION_CARDS.includes(id);
     const isFirst = id === 'q-cost-known';
     const btn = document.getElementById('btn-back');
@@ -695,7 +672,6 @@ iCloud/Claude/Projects/Purchase Decision Framework/
   function goBack() {
     if (history.length === 0) return;
     const prev = history.pop();
-    // Clear answers recorded after returning point
     const idx = QUESTION_CARDS.indexOf(prev.cardId);
     const toRemove = QUESTION_CARDS.slice(idx);
     const answerKeys = {
@@ -716,6 +692,7 @@ iCloud/Claude/Projects/Purchase Decision Framework/
     progress(prev.pct);
     show(prev.cardId);
   }
+
   function toggleCheck(itemId, cbId) {
     document.getElementById(itemId).classList.toggle('checked', document.getElementById(cbId).checked);
   }
@@ -731,22 +708,15 @@ iCloud/Claude/Projects/Purchase Decision Framework/
     route(question, value);
   }
 
-  function getCurrentCard() {
-    const active = document.querySelector('.card.active');
-    return active ? active.id : null;
-  }
-
   function route(question, value) {
 
     if (question === 'cost-known') {
       if (value === 'no') { progress(100); show('v-pending-cost'); return; }
-      navigate('q-cost-known', 0, 'q-cost-amount', 14);  return;
+      navigate('q-cost-known', 0, 'q-cost-amount', 14); return;
     }
 
     if (question === 'net-impact') {
-      if (value === 'neutral' || value === 'negative') {
-        progress(100); show('v-no-go-impact'); return;
-      }
+      if (value === 'neutral' || value === 'negative') { progress(100); show('v-no-go-impact'); return; }
       navigate('q-net-impact', 28, 'q-own', 42); return;
     }
 
@@ -764,47 +734,36 @@ iCloud/Claude/Projects/Purchase Decision Framework/
     if (question === 'financial') {
       if (value === 'damaging') { progress(100); show('v-no-go-financial'); return; }
       if (value === 'edge') { progress(100); show('v-no-go-financial'); return; }
-      if (answers['net-impact'] === 'marginal' && value === 'noticeable') {
-        progress(100); show('v-no-go-financial'); return;
-      }
+      if (answers['net-impact'] === 'marginal' && value === 'noticeable') { progress(100); show('v-no-go-financial'); return; }
       navigate('q-financial', 56, 'q-research', 70); return;
     }
 
     if (question === 'stock') {
       if (value === 'noeta') { progress(100); show('v-pending-stock'); return; }
-      // instock and backorder both proceed to delay question
       navigate('q-stock', 77, 'q-delay', 84); return;
     }
 
     if (question === 'delay') {
       if (value === 'serious') {
-        if (answers['stock'] === 'backorder') { progress(100); show('v-go-backorder'); return; }
-        progress(100); show('v-go-priority'); return;
+        progress(100);
+        if (answers['stock'] === 'backorder') { show('v-go-backorder'); } else { show('v-go-priority'); }
+        return;
       }
       if (value === 'saves') { progress(100); show('v-pending-delay'); return; }
 
       const impact = answers['net-impact'];
       const fin = answers['financial'];
       const isBackorder = answers['stock'] === 'backorder';
-
-      function goVerdict() {
-        if (isBackorder) { show('v-go-backorder'); } else { show('v-go'); }
-      }
+      function goVerdict() { if (isBackorder) { show('v-go-backorder'); } else { show('v-go'); } }
 
       if (value === 'none') {
-        if (impact === 'transformative' || impact === 'significant') {
-          progress(100); show('v-pending-delay'); return;
-        }
+        if (impact === 'transformative' || impact === 'significant') { progress(100); show('v-pending-delay'); return; }
         progress(100); show('v-no-go-delay'); return;
       }
 
       if (value === 'minor') {
-        if (impact === 'transformative' || impact === 'significant') {
-          progress(100); goVerdict(); return;
-        }
-        if (impact === 'moderate' && (fin === 'clean' || fin === 'tight')) {
-          progress(100); goVerdict(); return;
-        }
+        if (impact === 'transformative' || impact === 'significant') { progress(100); goVerdict(); return; }
+        if (impact === 'moderate' && (fin === 'clean' || fin === 'tight')) { progress(100); goVerdict(); return; }
         progress(100); show('v-pending-delay'); return;
       }
     }
@@ -815,7 +774,6 @@ iCloud/Claude/Projects/Purchase Decision Framework/
     if (!val || val <= 0) return;
     cost = val;
     answers.cost = val;
-    if (val < THRESHOLD) { progress(100); show('v-below-threshold'); return; }
     navigate('q-cost-amount', 14, 'q-net-impact', 28);
   }
 
